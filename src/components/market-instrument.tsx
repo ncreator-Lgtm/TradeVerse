@@ -56,16 +56,13 @@ type QuoteData = {
   exchange?: string;
   currency?: string;
   datetime?: string;
-
   open?: string;
   high?: string;
   low?: string;
   close?: string;
-
   previous_close?: string;
   change?: string;
   percent_change?: string;
-
   volume?: string;
 };
 
@@ -84,15 +81,10 @@ const ranges: Range[] = [
 function toTimestamp(
   datetime: string
 ): UTCTimestamp {
-  let normalized: string;
-
-  if (datetime.length === 10) {
-    normalized =
-      `${datetime}T00:00:00Z`;
-  } else {
-    normalized =
-      `${datetime.replace(" ", "T")}Z`;
-  }
+  const normalized =
+    datetime.length === 10
+      ? `${datetime}T00:00:00Z`
+      : `${datetime.replace(" ", "T")}Z`;
 
   return Math.floor(
     new Date(normalized).getTime() / 1000
@@ -160,7 +152,9 @@ export default function MarketInstrument({
   initialCurrency?: string;
 }) {
   const chartContainer =
-    useRef<HTMLDivElement>(null);
+    useRef<HTMLDivElement | null>(
+      null
+    );
 
   const [range, setRange] =
     useState<Range>("1D");
@@ -171,30 +165,43 @@ export default function MarketInstrument({
   const [showVolume, setShowVolume] =
     useState(true);
 
-  const [chartValues, setChartValues] =
-    useState<ChartValue[]>([]);
+  const [
+    chartValues,
+    setChartValues,
+  ] = useState<ChartValue[]>([]);
 
   const [quote, setQuote] =
-    useState<QuoteData | null>(null);
+    useState<QuoteData | null>(
+      null
+    );
 
-  const [monthHigh, setMonthHigh] =
-    useState<number | null>(null);
+  const [
+    monthHigh,
+    setMonthHigh,
+  ] = useState<number | null>(
+    null
+  );
 
-  const [monthLow, setMonthLow] =
-    useState<number | null>(null);
+  const [
+    monthLow,
+    setMonthLow,
+  ] = useState<number | null>(
+    null
+  );
 
-  const [chartLoading, setChartLoading] =
-    useState(true);
+  const [
+    chartLoading,
+    setChartLoading,
+  ] = useState(true);
 
-  const [quoteLoading, setQuoteLoading] =
-    useState(true);
+  const [
+    quoteLoading,
+    setQuoteLoading,
+  ] = useState(true);
 
   const [error, setError] =
     useState("");
 
-  /*
-   * Aktuellen Kurs laden.
-   */
   useEffect(() => {
     async function loadQuote() {
       setQuoteLoading(true);
@@ -229,10 +236,14 @@ export default function MarketInstrument({
           return;
         }
 
-        setQuote(json.quote);
+        setQuote(
+          json.quote
+        );
+
         setMonthHigh(
           json.month_high
         );
+
         setMonthLow(
           json.month_low
         );
@@ -241,16 +252,18 @@ export default function MarketInstrument({
           "Kurs konnte nicht geladen werden."
         );
       } finally {
-        setQuoteLoading(false);
+        setQuoteLoading(
+          false
+        );
       }
     }
 
     loadQuote();
-  }, [symbol, exchange]);
+  }, [
+    symbol,
+    exchange,
+  ]);
 
-  /*
-   * Chartdaten laden.
-   */
   useEffect(() => {
     async function loadChart() {
       setChartLoading(true);
@@ -284,149 +297,202 @@ export default function MarketInstrument({
               "Chart konnte nicht geladen werden."
           );
 
-          setChartValues([]);
+          setChartValues(
+            []
+          );
+
           return;
         }
 
         setChartValues(
-          json.values ?? []
+          json.values ??
+            []
         );
       } catch {
         setError(
           "Chart konnte nicht geladen werden."
         );
 
-        setChartValues([]);
+        setChartValues(
+          []
+        );
       } finally {
-        setChartLoading(false);
+        setChartLoading(
+          false
+        );
       }
     }
 
     loadChart();
-  }, [symbol, exchange, range]);
+  }, [
+    symbol,
+    exchange,
+    range,
+  ]);
 
-  /*
-   * Chart zeichnen.
-   */
   useEffect(() => {
-    const container =
-      chartContainer.current;
-
     if (
-      !container ||
+      !chartContainer.current ||
       chartValues.length === 0
     ) {
       return;
     }
 
-    const chart = createChart(
-      container,
-      {
-        width:
-          container.clientWidth,
+    /*
+     * Nach der Prüfung oben erzwingen wir
+     * bewusst den konkreten Element-Typ.
+     * Dadurch gibt es im Production-Build
+     * keine "possibly null"-Warnung mehr.
+     */
+    const element =
+      chartContainer.current as HTMLDivElement;
 
-        height: 480,
+    const chart =
+      createChart(
+        element,
+        {
+          width:
+            element.clientWidth,
 
-        layout: {
-          background: {
-            type: ColorType.Solid,
-            color: "#101014",
+          height: 480,
+
+          layout: {
+            background: {
+              type:
+                ColorType.Solid,
+
+              color:
+                "#101014",
+            },
+
+            textColor:
+              "#71717a",
           },
 
-          textColor: "#71717a",
-        },
+          grid: {
+            vertLines: {
+              color:
+                "#18181b",
+            },
 
-        grid: {
-          vertLines: {
-            color: "#18181b",
+            horzLines: {
+              color:
+                "#18181b",
+            },
           },
 
-          horzLines: {
-            color: "#18181b",
+          rightPriceScale: {
+            borderColor:
+              "#27272a",
           },
-        },
 
-        rightPriceScale: {
-          borderColor: "#27272a",
-        },
+          timeScale: {
+            borderColor:
+              "#27272a",
 
-        timeScale: {
-          borderColor: "#27272a",
+            timeVisible:
+              range ===
+                "1D" ||
+              range ===
+                "5D" ||
+              range ===
+                "1M",
+          },
 
-          timeVisible:
-            range === "1D" ||
-            range === "5D" ||
-            range === "1M",
-        },
+          handleScroll:
+            true,
 
-        handleScroll: true,
-        handleScale: true,
-      }
-    );
+          handleScale:
+            true,
+        }
+      );
 
     const lineData =
       chartValues.map(
         (item) => ({
-          time: toTimestamp(
-            item.datetime
-          ),
+          time:
+            toTimestamp(
+              item.datetime
+            ),
 
-          value: Number(
-            item.close
-          ),
+          value:
+            Number(
+              item.close
+            ),
         })
       );
 
     const candleData =
       chartValues.map(
         (item) => ({
-          time: toTimestamp(
-            item.datetime
-          ),
+          time:
+            toTimestamp(
+              item.datetime
+            ),
 
-          open: Number(
-            item.open
-          ),
+          open:
+            Number(
+              item.open
+            ),
 
-          high: Number(
-            item.high
-          ),
+          high:
+            Number(
+              item.high
+            ),
 
-          low: Number(
-            item.low
-          ),
+          low:
+            Number(
+              item.low
+            ),
 
-          close: Number(
-            item.close
-          ),
+          close:
+            Number(
+              item.close
+            ),
         })
       );
 
-    let priceSeries;
-
     if (
-      chartType === "line"
+      chartType ===
+      "line"
     ) {
-      priceSeries =
+      const series =
         chart.addSeries(
           LineSeries,
           {
-            color: "#d946ef",
+            color:
+              "#d946ef",
+
             lineWidth: 2,
+
             priceLineVisible:
               false,
           }
         );
 
-      priceSeries.setData(
+      series.setData(
         lineData
       );
+
+      series
+        .priceScale()
+        .applyOptions({
+          scaleMargins: {
+            top: 0.08,
+
+            bottom:
+              showVolume
+                ? 0.25
+                : 0.08,
+          },
+        });
     }
 
     if (
-      chartType === "area"
+      chartType ===
+      "area"
     ) {
-      priceSeries =
+      const series =
         chart.addSeries(
           AreaSeries,
           {
@@ -446,16 +512,29 @@ export default function MarketInstrument({
           }
         );
 
-      priceSeries.setData(
+      series.setData(
         lineData
       );
+
+      series
+        .priceScale()
+        .applyOptions({
+          scaleMargins: {
+            top: 0.08,
+
+            bottom:
+              showVolume
+                ? 0.25
+                : 0.08,
+          },
+        });
     }
 
     if (
       chartType ===
       "candlestick"
     ) {
-      priceSeries =
+      const series =
         chart.addSeries(
           CandlestickSeries,
           {
@@ -479,13 +558,11 @@ export default function MarketInstrument({
           }
         );
 
-      priceSeries.setData(
+      series.setData(
         candleData
       );
-    }
 
-    if (priceSeries) {
-      priceSeries
+      series
         .priceScale()
         .applyOptions({
           scaleMargins: {
@@ -505,28 +582,36 @@ export default function MarketInstrument({
           HistogramSeries,
           {
             priceFormat: {
-              type: "volume",
+              type:
+                "volume",
             },
 
-            priceScaleId: "",
+            priceScaleId:
+              "",
           }
         );
 
       volumeSeries.setData(
         chartValues.map(
           (item) => ({
-            time: toTimestamp(
-              item.datetime
-            ),
+            time:
+              toTimestamp(
+                item.datetime
+              ),
 
             value:
               Number(
-                item.volume ?? 0
+                item.volume ??
+                  0
               ),
 
             color:
-              Number(item.close) >=
-              Number(item.open)
+              Number(
+                item.close
+              ) >=
+              Number(
+                item.open
+              )
                 ? "rgba(16,185,129,0.35)"
                 : "rgba(239,68,68,0.35)",
           })
@@ -547,12 +632,12 @@ export default function MarketInstrument({
       .timeScale()
       .fitContent();
 
-    function resize() {
+    const resize = () => {
       chart.applyOptions({
         width:
-          container.clientWidth,
+          element.clientWidth,
       });
-    }
+    };
 
     window.addEventListener(
       "resize",
@@ -606,7 +691,6 @@ export default function MarketInstrument({
 
   return (
     <div>
-      {/* HEADER */}
       <section>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -642,12 +726,14 @@ export default function MarketInstrument({
                 ) ? (
                   <span
                     className={`mb-1 rounded-full px-3 py-1 text-sm font-semibold ${
-                      percentChange >= 0
+                      percentChange >=
+                      0
                         ? "bg-emerald-500/10 text-emerald-400"
                         : "bg-red-500/10 text-red-400"
                     }`}
                   >
-                    {percentChange >= 0
+                    {percentChange >=
+                    0
                       ? "+"
                       : ""}
 
@@ -661,7 +747,6 @@ export default function MarketInstrument({
                           2,
                       }
                     )}
-
                     %
                   </span>
                 ) : null}
@@ -671,7 +756,6 @@ export default function MarketInstrument({
         </div>
       </section>
 
-      {/* CHART */}
       <section className="mt-8 rounded-3xl border border-white/10 bg-[#101014] p-4 md:p-6">
         <div className="flex flex-wrap gap-2">
           {ranges.map(
@@ -680,15 +764,19 @@ export default function MarketInstrument({
                 key={item}
                 type="button"
                 onClick={() =>
-                  setRange(item)
+                  setRange(
+                    item
+                  )
                 }
                 className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
-                  range === item
+                  range ===
+                  item
                     ? "bg-fuchsia-500/15 text-fuchsia-300"
                     : "text-zinc-500 hover:bg-white/5 hover:text-white"
                 }`}
               >
-                {item === "ALL"
+                {item ===
+                "ALL"
                   ? "All"
                   : item}
               </button>
@@ -705,14 +793,13 @@ export default function MarketInstrument({
               )
             }
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
-              chartType === "line"
+              chartType ===
+              "line"
                 ? "bg-white/10 text-white"
                 : "text-zinc-500"
             }`}
           >
-            <BarChart3
-              size={15}
-            />
+            <BarChart3 size={15} />
             Linie
           </button>
 
@@ -724,14 +811,13 @@ export default function MarketInstrument({
               )
             }
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
-              chartType === "area"
+              chartType ===
+              "area"
                 ? "bg-white/10 text-white"
                 : "text-zinc-500"
             }`}
           >
-            <AreaChart
-              size={15}
-            />
+            <AreaChart size={15} />
             Berg
           </button>
 
@@ -801,7 +887,6 @@ export default function MarketInstrument({
         </p>
       </section>
 
-      {/* FINANZDATEN */}
       <section className="mt-6">
         <h2 className="text-xl font-semibold">
           Finanzdaten
@@ -819,7 +904,6 @@ export default function MarketInstrument({
                   currency
                 ),
             },
-
             {
               label:
                 "Monatshoch",
@@ -830,7 +914,6 @@ export default function MarketInstrument({
                   currency
                 ),
             },
-
             {
               label:
                 "Monatstief",
@@ -841,21 +924,15 @@ export default function MarketInstrument({
                   currency
                 ),
             },
-
             {
               label:
                 "Marktkap.",
-
               value: "—",
             },
-
             {
-              label:
-                "KGV",
-
+              label: "KGV",
               value: "—",
             },
-
             {
               label:
                 "Vol.",
@@ -865,18 +942,13 @@ export default function MarketInstrument({
                   volume
                 ),
             },
-
             {
               label:
                 "Dividende je Aktie",
-
               value: "—",
             },
-
             {
-              label:
-                "EPS",
-
+              label: "EPS",
               value: "—",
             },
           ].map(
@@ -888,15 +960,11 @@ export default function MarketInstrument({
                 className="rounded-2xl border border-white/10 bg-[#101014] p-5"
               >
                 <p className="text-xs text-zinc-500">
-                  {
-                    item.label
-                  }
+                  {item.label}
                 </p>
 
                 <p className="mt-2 text-lg font-semibold">
-                  {
-                    item.value
-                  }
+                  {item.value}
                 </p>
               </div>
             )
@@ -904,7 +972,6 @@ export default function MarketInstrument({
         </div>
       </section>
 
-      {/* KAUFEN / VERKAUFEN */}
       <section className="mt-6">
         <TradeBox
           symbol={symbol}
