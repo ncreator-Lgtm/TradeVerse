@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 type PositionRow = {
   id: string;
@@ -45,10 +45,7 @@ async function getQuote({
 
   const result = await response.json();
 
-  if (
-    !response.ok ||
-    result.status === "error"
-  ) {
+  if (!response.ok || result.status === "error") {
     throw new Error(
       result.message ??
         `Kurs für ${symbol} konnte nicht geladen werden.`
@@ -65,8 +62,7 @@ async function getFxRate({
   currency: string;
   apiKey: string;
 }) {
-  const upperCurrency =
-    currency.toUpperCase();
+  const upperCurrency = currency.toUpperCase();
 
   if (upperCurrency === "EUR") {
     return 1;
@@ -86,11 +82,8 @@ async function getFxRate({
     }
   );
 
-  const result =
-    await response.json();
-
-  const rate =
-    Number(result.rate);
+  const result = await response.json();
+  const rate = Number(result.rate);
 
   if (
     !response.ok ||
@@ -107,13 +100,11 @@ async function getFxRate({
 }
 
 export async function GET() {
-  const supabase =
-    await createClient();
+  const supabase = await createClient();
 
   const {
     data: { user },
-  } =
-    await supabase.auth.getUser();
+  } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json(
@@ -126,20 +117,26 @@ export async function GET() {
     );
   }
 
-  const apiKey =
+  const apiKeyFromEnv =
     process.env.TWELVE_DATA_API_KEY;
 
-  if (!apiKey) {
+  if (!apiKeyFromEnv) {
     return NextResponse.json(
       {
-        error:
-          "TWELVE_DATA_API_KEY fehlt.",
+        error: "TWELVE_DATA_API_KEY fehlt.",
       },
       {
         status: 500,
       }
     );
   }
+
+  /*
+   * Nach der Prüfung ist dieser Wert garantiert
+   * ein string. Dadurch ist TypeScript auch im
+   * Vercel-Production-Build zufrieden.
+   */
+  const apiKey: string = apiKeyFromEnv;
 
   const [
     portfolioResult,
@@ -167,12 +164,9 @@ export async function GET() {
         "id, symbol, exchange, instrument_name, side, quantity, currency, price_native, price_eur, gross_value_eur, executed_at"
       )
       .eq("user_id", user.id)
-      .order(
-        "executed_at",
-        {
-          ascending: false,
-        }
-      )
+      .order("executed_at", {
+        ascending: false,
+      })
       .limit(10),
   ]);
 
@@ -219,31 +213,33 @@ export async function GET() {
     (positionsResult.data ??
       []) as PositionRow[];
 
-  const fxPromises =
-    new Map<
-      string,
-      Promise<number>
-    >();
+  const fxPromises = new Map<
+    string,
+    Promise<number>
+  >();
 
-  function getCachedFx(
-    currency: string
-  ) {
+  function getCachedFx(currency: string) {
     const key =
       currency.toUpperCase();
 
-    if (!fxPromises.has(key)) {
-      fxPromises.set(
-        key,
-        getFxRate({
-          currency: key,
-          apiKey,
-        })
-      );
+    const existing =
+      fxPromises.get(key);
+
+    if (existing) {
+      return existing;
     }
 
-    return fxPromises.get(
-      key
-    )!;
+    const promise = getFxRate({
+      currency: key,
+      apiKey,
+    });
+
+    fxPromises.set(
+      key,
+      promise
+    );
+
+    return promise;
   }
 
   const pricedPositions =
@@ -270,10 +266,8 @@ export async function GET() {
               await getQuote({
                 symbol:
                   position.symbol,
-
                 exchange:
                   position.exchange,
-
                 apiKey,
               });
 
@@ -330,23 +324,16 @@ export async function GET() {
                 : 0;
 
             return {
-              id:
-                position.id,
-
+              id: position.id,
               symbol:
                 position.symbol,
-
               exchange:
                 position.exchange,
-
               mic_code:
                 position.mic_code,
-
               instrument_name:
                 position.instrument_name,
-
               currency,
-
               quantity,
 
               average_cost_native:
@@ -385,24 +372,17 @@ export async function GET() {
             };
           } catch (error) {
             return {
-              id:
-                position.id,
-
+              id: position.id,
               symbol:
                 position.symbol,
-
               exchange:
                 position.exchange,
-
               mic_code:
                 position.mic_code,
-
               instrument_name:
                 position.instrument_name,
-
               currency:
                 position.currency,
-
               quantity,
 
               average_cost_native:
@@ -514,15 +494,8 @@ export async function GET() {
         null
     );
 
-  /*
-   * Nur wenn ALLE Positionen korrekt bewertet
-   * wurden, aktualisieren wir die Rangliste.
-   *
-   * So verhindert TradeVerse, dass bei einem
-   * API-Fehler eine Position plötzlich mit
-   * 0 € in die Rangliste eingeht.
-   */
-  let snapshotUpdated = false;
+  let snapshotUpdated =
+    false;
 
   if (completePricing) {
     const admin =
@@ -536,8 +509,7 @@ export async function GET() {
       )
       .upsert(
         {
-          user_id:
-            user.id,
+          user_id: user.id,
 
           portfolio_id:
             portfolioResult.data.id,
